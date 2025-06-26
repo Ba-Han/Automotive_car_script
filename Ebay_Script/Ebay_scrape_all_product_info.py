@@ -11,7 +11,7 @@ HEADERS = {
 }
 
 BASE_URL = "https://www.ebay.com"
-CATEGORY_URL = "https://www.ebay.com/b/Car-Truck-Crankshafts/33616/bn_560110"
+CATEGORY_URL = "https://www.ebay.com/b/Car-Truck-Towing-Mirrors/173832/bn_7117887182"
 
 def get_product_links(start_page=1, end_page=5):
     product_links = []
@@ -32,14 +32,11 @@ def get_product_links(start_page=1, end_page=5):
         for item in product_items:
             href = item.get("href")
             if href:
-                full_url = urljoin(BASE_URL, href)
-                match = re.search(r"(https://www\.ebay\.com/itm/\d+)", full_url)
-                if match:
-                    clean_url = match.group(1)
-                    product_links.append(clean_url)
+                product_links.append(href)
 
         time.sleep(2)
-    return product_links
+    # Remove duplicate URLs (optional)
+    return list(set(product_links))
 
 def scrape_product(url):
     try:
@@ -57,6 +54,23 @@ def scrape_product(url):
 
         price = soup.find("div", class_="x-price-primary")
         base_data["Price"] = price.get_text(strip=True) if price else "No price found"
+
+        item_divs = soup.find_all("div", class_="ux-layout-section__textual-display")
+        item_number = "No item number found"
+        for div in item_divs:
+            label = div.find("span", class_="ux-textspans ux-textspans--SECONDARY")
+            value = div.find("span", class_="ux-textspans ux-textspans--BOLD")
+            if label and "eBay item number" in label.get_text():
+                if value:
+                    val_text = value.get_text(strip=True)
+                    if val_text.isdigit():
+                        val_text = f"'{val_text}"
+                    item_number = val_text
+                else:
+                    item_number = "No item number found"
+                break
+
+        base_data["Item Number"] = item_number
 
         base_data["Product URL"] = url
         base_data["Category URL"] = CATEGORY_URL
@@ -83,37 +97,39 @@ def scrape_product(url):
             else:
                 base_data["Image URL"] = "No image found"
 
-        # Extract table data
-        final_rows = []
-        table = soup.find('table')
-        if not table:
-            return [base_data]
+        # === COMMENTED OUT: Table data extraction ===
+        # final_rows = []
+        # table = soup.find('table')
+        # if not table:
+        #     return [base_data]
 
-        rows = table.find_all('tr')[1:]  # Skip the header
-        for row in rows:
-            cols = row.find_all('td')
-            if len(cols) >= 5:
-                year = cols[0].get_text(strip=True)
-                make = cols[1].get_text(strip=True)
-                model = cols[2].get_text(strip=True)
-                trim = cols[3].get_text(strip=True)
-                engine = cols[4].get_text(strip=True)
-                notes = cols[5].get_text(strip=True) if len(cols) > 5 else "Empty"
+        # rows = table.find_all('tr')[1:]  # Skip the header
+        # for row in rows:
+        #     cols = row.find_all('td')
+        #     if len(cols) >= 5:
+        #         year = cols[0].get_text(strip=True)
+        #         make = cols[1].get_text(strip=True)
+        #         model = cols[2].get_text(strip=True)
+        #         trim = cols[3].get_text(strip=True)
+        #         engine = cols[4].get_text(strip=True)
+        #         notes = cols[5].get_text(strip=True) if len(cols) > 5 else "Empty"
 
-                # Merge table row with shared product data
-                combined_data = base_data.copy()
-                combined_data.update({
-                    "Year": year,
-                    "Make": make,
-                    "Model": model,
-                    "Trim": trim,
-                    "Engine": engine,
-                    "Notes": notes
-                })
+        #         combined_data = base_data.copy()
+        #         combined_data.update({
+        #             "Year": year,
+        #             "Make": make,
+        #             "Model": model,
+        #             "Trim": trim,
+        #             "Engine": engine,
+        #             "Notes": notes
+        #         })
 
-                final_rows.append(combined_data)
+        #         final_rows.append(combined_data)
 
-        return final_rows
+        # return final_rows
+
+        # Return only base data as a single-row list
+        return [base_data]
 
     except Exception as e:
         print(f"Error scraping {url}: {e}")
@@ -123,6 +139,8 @@ def scrape_all_products():
     product_links = get_product_links(start_page=1, end_page=5)  # Set page range here
     all_data = []
     all_headers = set()  # Use a set to store all unique headers
+
+    DEFAULT_COLUMNS = ["Product Name", "Price", "Item Number", "Product URL", "Category URL", "Image URL"]
 
     for idx, link in enumerate(product_links, start=1):
         print(f"\n📦 Scraping product {idx}/{len(product_links)}: {link}")
@@ -137,13 +155,16 @@ def scrape_all_products():
         print("⚠️ No product data collected.")
         return
 
-    headers = list(all_headers)  # Convert the set to a list
-    with open("Crankshafts.csv", mode="w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=headers)
+    # Reorder headers: default first, then the rest
+    dynamic_headers = sorted(set(all_headers) - set(DEFAULT_COLUMNS))
+    final_headers = DEFAULT_COLUMNS + dynamic_headers
+
+    with open("Towing-Mirrors.csv", mode="w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=final_headers)
         writer.writeheader()
         for row in all_data:
             writer.writerow(row)
 
-    print("\n✅ All product data saved to 'Crankshafts.csv'")
+    print("\n✅ All product data saved to 'Towing-Mirrors.csv'")
 
 scrape_all_products()
