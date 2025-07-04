@@ -89,12 +89,16 @@ def scrape_product_selenium(driver, url):
     price = soup.find("div", class_="price")
     price = price.get_text(strip=True) if price else "No price found"
 
+    manufacturer = soup.find("a", class_="unit-product__supplier-label-link")
+    manufacturer_supplier = manufacturer.get_text(strip=True) if price else "No manufacturer"
+
     product_data = {
         "Product Name": product_name,
         "Product Number": product_number,
         "Price": price,
         "Product URL": url,
-        "Category URL": CATEGORY_URL
+        "Category URL": CATEGORY_URL,
+        "Manufacturer Supplier": manufacturer_supplier
     }
 
     product_info_div = soup.find("div", class_="unit-product__details-list")
@@ -159,7 +163,7 @@ def scrape_all_product():
     all_rows = []
 
     # --- Fixed headers always shown first ---
-    fixed_headers = ["Product Name", "Product Number", "Price", "Product URL", "Category URL", "Image URL"]
+    fixed_headers = ["Product Name", "Product Number", "Price", "Product URL", "Category URL", "Image URL", "Manufacturer Supplier"]
     all_detected_headers = set(fixed_headers)  # To collect dynamic headers
 
     # Commented: OEM and vehicle headers
